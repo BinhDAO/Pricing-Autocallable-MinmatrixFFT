@@ -48,7 +48,7 @@ public class MinMatrixFFT
         double[,] covarianceMarix = ComputeCovarianceMatrix(x);
         foreach (var time in x)
         {
-            Console.Write("{time:F2} ");
+            Console.Write("${time:F2} ");
         }
         Console.WriteLine();
 
