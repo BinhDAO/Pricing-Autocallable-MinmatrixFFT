@@ -17,7 +17,7 @@ public class MinMatrixFFT
 
         // Input the vector x (1xN), representing W[ti] at different times i
         double[] x = new double[n];
-        Console.WriteLine("Enter the elements of vector x (W[ti] values, separated by spaces): ");
+        Console.WriteLine("Enter the elements of W[ti] values, separated by spaces: ");
         string[] xInput = Console.ReadLine().Split();
         for (int i = 0; i < n; i++)
         {
