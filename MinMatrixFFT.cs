@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics.Contracts;
 using System.Numerics;
 using MathNet.Numerics.IntegralTransforms; // Using MathNet.Numerics for FFT operations
@@ -15,9 +15,9 @@ public class MinMatrixFFT
         Console.Write("Enter the number of elements n: ");
         int n = int.Parse(Console.ReadLine());
 
-        // Input the vector x (1xN), representing Wti at different times i
+        // Input the vector x (1xN), representing W[ti] at different times i
         double[] x = new double[n];
-        Console.WriteLine("Enter the elements of vector x (Wti values, separated by spaces):");
+        Console.WriteLine("Enter the elements of vector x (W[ti] values, separated by spaces): ");
         string[] xInput = Console.ReadLine().Split();
         for (int i = 0; i < n; i++)
         {
@@ -55,7 +55,7 @@ public class MinMatrixFFT
         ///<summary>
         /// Print the Wiener process at each time ti
         /// </summary>
-        Console.WriteLine("The Wiener process at each time ti is: ");
+        Console.WriteLine("The Wiener process at each time t_i is: ");
         foreach (var time in x)
         {
             Console.Write("{time:F2} ");
@@ -110,7 +110,7 @@ public class MinMatrixFFT
         ///<summary>
         /// Print the inverse matrix
         /// </summary>
-        Console.WriteLine("\nMa trận inverse:");
+        Console.WriteLine("Inverse matrix is:");
         for (int i = 0; i < n; i++)
         {
             {
@@ -149,17 +149,22 @@ public class MinMatrixFFT
             y[i] = Math.Sqrt(d[n - 1 - i]) * x[n - 1 - i]; // Change from x to y based on formula
         }
 
+        // Print the y vector
+        Console.WriteLine("The y vector is:");
+        foreach (var yi in y)
+        {
+            Console.Write($"{yi:F2} ");
+        }
+        Console.WriteLine();
+
         // Compute delta(i) for i = 1 to n-1
         double[] delta = new double[n - 1];
         for (int i = 0; i < n - 1; i++)
         {
             delta[i] = Math.Sqrt(d[n - 2 - i] / d[n - 1 - i]);
         }
-
     }
-
-
-      
+          
 
 
 /// <summary>
@@ -168,7 +173,7 @@ public class MinMatrixFFT
 public double unitInterval { get; set; }
     public int bounder { get; set; }
 
-    public MinMatrixFFT(double unitinterval_ = 0.1, int bounder_ = 25) {
+    public MinMatrixFFT(double unitinterval_ = 0.005, int bounder_ = 25) {
         unitInterval = unitinterval_;
         bounder = bounder_;
     }
@@ -190,85 +195,96 @@ public double unitInterval { get; set; }
     
     }
 
-    public double[] ComputeGaussianFunction(double[] grid)
+    // Define Gaussian function
+    public static double Gaussian(double x)
     {
-        double sqrt2Pi = Math.Sqrt(2.0 * Math.PI);
-        double[] gaussian = new double[grid.Length];
-        for (int i = 0; i < grid.Length; i++)
-        {
-            gaussian[i] = Math.Exp(-0.5 * grid[i] * grid[i]) / sqrt2Pi;
-        }
-        return gaussian;
+        return Math.Exp(-0.5 * x * x) / Math.Sqrt(2 * Math.PI);
     }
 
-    public Complex[] ConvolveWithFFT(double[] f1, double[] f2)
+    // Compute h_i(z) using FFT convolution
+    public static double[] ComputeHi(double[] grid, double[] hiMinus1, double[] delta)
     {
-        Contract.Requires(f1.Length == f2.Length);
-        int nbElements = f1.Length;
-        Complex[] fft1 = new Complex[nbElements];
-        Complex[] fft2 = new Complex[nbElements];
-        for (int i = 0; i < nbElements; i++)
+        int n = grid.Length;
+        Complex[] gaussian = new Complex[n];
+        Complex[] hiPrev = new Complex[n];
+
+        // Prepare Gaussian function and h_{i-1}(y_{i-1}) for FFT
+        for (int i = 0; i < n; i++)
         {
-            fft1[i] = new Complex(f1[i], 0);
-            fft2[i] = new Complex(f2[i], 0);
+            gaussian[i] = new Complex(Gaussian(grid[i] / delta[i]), 0); 
+            hiPrev[i] = new Complex(hiMinus1[i], 0); // Previous h_{i-1}
         }
 
-        Fourier.Forward(fft1, FourierOptions.Matlab);
-        Fourier.Forward(fft2, FourierOptions.Matlab);
+        // Apply FFT to both arrays
+        Fourier.Forward(gaussian, FourierOptions.Matlab);
+        Fourier.Forward(hiPrev, FourierOptions.Matlab);
 
-        Complex[] h = new Complex[nbElements];
-        for (int i = 0; i < nbElements; i++)
+        // Pointwise multiplication in frequency domain
+        for (int i = 0; i < n; i++)
         {
-            h[i] = fft1[i] * fft2[i];
+            gaussian[i] *= hiPrev[i];
         }
 
-        Fourier.Inverse(h, FourierOptions.Matlab);
-        return h;
+        // Apply inverse FFT to get convolution result
+        Fourier.Inverse(gaussian, FourierOptions.Matlab);
+
+        // Normalize and take the real part as result
+        double[] hi = new double[n];
+        for (int i = 0; i < n; i++)
+        {
+            hi[i] = gaussian[i].Real / n;
+        }
+
+        return hi;
     }
-    public double[] LinearInterpolation(double[] grid, double[] h, double[] xValues)
-    {
+    
+     
         /// <summary>
         ///     Linear Interpolation. Method: Connect two consecutive points with a straight line 
         ///     in the given points to interpolate the function. 
         /// </summary>
-        /// <param name="grid">
-        ///     Points in the x-axis of the given points.
-        /// </param>
-        /// <param name="h">
-        ///     Points in the y-axis of the given points.
-        /// </param>
-        /// <param name="xValues">
         ///     Points in the x-axis to intepolate.
         /// </param>
-        double[] fi = new double[xValues.Length];
-
-        for (int j = 0; j < xValues.Length; j++)
+        // Interpolate f_i(y_i) from h_i(z) using linear interpolation
+        public static double[] InterpolateFi(double[] grid, double[] hi, double delta, double unitInterval, int n)
         {
-            double x = xValues[j];
-            int i = 0;
+            // number of y_i elements
+            double[] fi = new double[n];
 
-            // Find the 2 nearest grid points grid[i] <= x <= grid[i+1]
-            while (i < grid.Length - 1 && grid[i + 1] < x)
+            for (int r = 0; r < n; r++)
             {
-                i++;
+                // Compute y_i from r and unitInterval
+                double yi = r * unitInterval;
+
+                // Turn y_i into z with z = delta[i] * y_i
+                double z = delta * yi;
+
+                // find grid index that correspond to z
+                int lowerIndex = (int)Math.Floor(z / unitInterval);
+                int upperIndex = (int)Math.Ceiling(z / unitInterval);
+
+                // Ensure that index is on the grid
+                if (lowerIndex < 0 || upperIndex >= grid.Length)
+                {
+                    fi[r] = 0.0; // if outside the bounder, return 0
+                    continue;
+                }
+
+                // get h_i(z) values at lowerIndex and upperIndex
+                double hLower = hi[lowerIndex];
+                double hUpper = hi[upperIndex];
+
+                // Compute interpolation parameter
+                double weight = (z - grid[lowerIndex]) / (grid[upperIndex] - grid[lowerIndex]);
+
+                // Interpolation
+                fi[r] = hLower + weight * (hUpper - hLower);
             }
 
-            // If x is outside the grid length, return the boundary
-            if (i == grid.Length - 1)
-            {
-                fi[j] = h[i];
-            }
-            else
-            {
-                // Do Linear interpolation
-                fi[j] = h[i] + (x - grid[i]) * (grid[i + 1] - grid[i]) * (1 / (h[i + 1] - h[i]));
-            }
+            return fi;
         }
 
-        return fi;
-    }
-
-    public double ComputeProbability(double[] fi, double[] grid)
+        public double ComputeProbability(double[] fi, double[] grid)
     {
         double sum = 0;
         for (int i = 0; i < fi.Length; i++)
@@ -280,33 +296,47 @@ public double unitInterval { get; set; }
 
     public double CalculateMinMatrixFFT()
     {
-        // Step 1: Create grid
+        // Create grid
         double[] grid = CreateCalculationGrid();
 
-        // Step 2: Compute Gaussian function
-        double[] gaussian = ComputeGaussianFunction(grid);
-
-        // Step 3: Perform convolution
-        Complex[] hi = ConvolveWithFFT(gaussian, gaussian);
-
-        // Step 4: Interpolate function fi
-        double[] hi_real = new double[hi.Length];
-        for (int i = 0; i < hi.Length; i++) 
+        // Initialize h_0(z) as Gaussian function on the grid
+        double[] h0 = new double[grid.Length];
+        for (int i = 0; i < grid.Length; i++)
         {
-            hi_real[i] = hi[i].Real;
-        }         
-        double[] fi = LinearInterpolation(grid, hi_real, grid);
+            h0[i] = Gaussian(grid[i]);
+        }
 
-        // Step 5: Compute the probability
-        return ComputeProbability(fi, grid);
+        // Initial value for h_i(z) and f_i(y_i)
+        double[] hi = h0;
+        double[] fi = null;
+
+        // Initial value for delta array 
+        double[] delta = new double[bounder];
+        for (int i = 0; i < delta.Length; i++)
+        {
+            delta[i] = 1.0;                             
+        }
+        // Iteratively compute h_i(z) and f_i(y_i) for each i
+        for (int i = 0; i < delta.Length; i++)
+        {
+            // Compute h_i(z) from h_{i-1}(z) using FFT convolution
+            hi = ComputeHi(grid, hi, delta);
+
+            // Interpolate f_i(y_i) from h_i(z)
+            fi = InterpolateFi(grid, hi, delta[i], unitInterval, grid.Length);
+        }
+        // Compute the probability (sum over fi with integration)
+        double probability = ComputeProbability(fi, grid);
+        // Return the final probability value
+        return probability;
     }
 }
 
-class Program
-{
-    static void Main(string[] args)
-    {
-        MinMatrixFFT minMatrixFFT = new MinMatrixFFT(0.1, 25);
+//class Program
+//{
+//    static void Main(string[] args)
+//    {
+//        MinMatrixFFT minMatrixFFT = new MinMatrixFFT(0.1, 25);
 
 
 
@@ -318,10 +348,9 @@ class Program
         //for (int i = 0; i < result.Length; i++)
         //    Console.WriteLine(result[i].Real);
         //for (int i = 0; i<result.Length; i++)
-        //    Console.WriteLine(result[i]);
+//        //    Console.WriteLine(result[i]);
 
-        double probability = minMatrixFFT.CalculateMinMatrixFFT();
-        Console.WriteLine("Computed probability: " + probability);
-    }
-}
-
+//        double probability = minMatrixFFT.CalculateMinMatrixFFT();
+//        Console.WriteLine("Computed probability: " + probability);
+//    }
+//}
