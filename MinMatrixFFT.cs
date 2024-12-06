@@ -49,10 +49,7 @@ namespace MinMatrixFFT
                 // Input valuation dates (T1, T2, ..., Tn)
                 Console.Write("Enter the valuation dates separated by commas (yyyy-mm-dd): ");
                 string input = Console.ReadLine();
-                DateTime[] valuationDates = input
-                    .Split(',')
-                    .Select(date => DateTime.Parse(date.Trim()))
-                    .ToArray();
+                DateTime[] valuationDates = input.Split(',').Select(date => DateTime.Parse(date.Trim())).ToArray();
 
                 // Check valuation dates are before maturity and after the initial date
                 if (valuationDates.Any(date => date < initialDate || date > maturity))
