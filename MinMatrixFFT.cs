@@ -119,13 +119,10 @@ namespace MinMatrixFFT
                     upperBound[i] = inputUpperBound[n - i - 1] * Math.Sqrt(tempTimeVar[n - i - 1]);
                 }
 
-                ///input the l vector(inputLowerBound)
+                ///input the l vector (inputLowerBound)
                 Console.Write("Enter the values for inputLowerBound separated by commas (l1, l2, ..., ln): ");
                 string lInput = Console.ReadLine();
-                double[] inputLowerBound = lInput
-                    .Split(',')
-                    .Select(val => double.Parse(val.Trim()))
-                    .ToArray();
+                double[] inputLowerBound = lInput.Split(',').Select(val => double.Parse(val.Trim())).ToArray();
 
                 /// Check if the length of inputLowerBound matches the number of intervals
                 if (inputLowerBound.Length != n)
@@ -353,7 +350,7 @@ namespace MinMatrixFFT
         // Create grid
         {
             // Create grid
-                double[] grid = RegularGrid();
+            double[] grid = RegularGrid();
 
             // Initialize h_0(z) as Gaussian function on the grid
             double[] tempFunction_0 = new double[grid.Length];
@@ -363,6 +360,9 @@ namespace MinMatrixFFT
             }
             // Initial value for h_i(z) and f_i(y_i)
 
-               double[] tempFunction_i = tempFunction_0;
-               double[] originalFunction_i = null;
+            double[] tempFunction_i = tempFunction_0;
+            double[] originalFunction_i = null;
+            
+
+            
         }
