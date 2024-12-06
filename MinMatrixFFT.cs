@@ -49,7 +49,10 @@ namespace MinMatrixFFT
                 // Input valuation dates (T1, T2, ..., Tn)
                 Console.Write("Enter the valuation dates separated by commas (yyyy-mm-dd): ");
                 string input = Console.ReadLine();
-                DateTime[] valuationDates = input.Split(',').Select(date => DateTime.Parse(date.Trim())).ToArray();
+                DateTime[] valuationDates = input
+                    .Split(',')
+                    .Select(date => DateTime.Parse(date.Trim()))
+                    .ToArray();
 
                 // Check valuation dates are before maturity and after the initial date
                 if (valuationDates.Any(date => date < initialDate || date > maturity))
@@ -224,9 +227,9 @@ namespace MinMatrixFFT
         /// <param name="lowerBound"></param>
         /// <param name="upperBound"></param>
         /// <returns></returns>
-        public List<double> tempFunction(double[] regularGrid, int i, int n, int p, int q, double unitInterval, int gridLowerBound, int gridUpperBound, double[] upperBound, double[] lowerBound)
+        public List<double> tempFunction(List<double> regularGrid, int i, int n, int p, int q, double unitInterval, int gridLowerBound, int gridUpperBound, double[] upperBound, double[] lowerBound)
         {
-            List<double> tempFunction = new List<double>(regularGrid.Length);
+            List<double> tempFunction = new List<double>(regularGrid.Count);
 
             for (p = gridLowerBound; p <= gridUpperBound; p++)
             {
@@ -251,7 +254,7 @@ namespace MinMatrixFFT
                     ///summary
                     ///Do FFT for values of tempFunction at each point q in the sumInterval
                     ///</summary>
-                    int fftSize = (int)Math.Pow(2, Math.Ceiling(Math.Log2(regularGrid.Length)));
+                    int fftSize = (int)Math.Pow(2, Math.Ceiling(Math.Log2(regularGrid.Count)));
                     Complex[] normalDensityValues = new Complex[fftSize];
                     Complex[] originalFunctionValues = new Complex[fftSize];
 
@@ -329,37 +332,421 @@ namespace MinMatrixFFT
             return originalFunction.ToArray();
 
         }
-        public static double CumulativeDistributionFunction(double[] upperBound)
-        {
-            const double NEGATIVE_INFTY = double.NegativeInfinity;
-            double[] negativeInfty = new double[upperBound.Length];
-            for (int i = 0; i < upperBound.Length; i++)
-            {
-                negativeInfty[i] = NEGATIVE_INFTY;
-            }
-            return CumulativeDistributionFunction(negativeInfty, upperBound);
-        }
+        //public static double CumulativeDistributionFunction(double[] upperBound)
+        //{
+        //    const double NEGATIVE_INFTY = double.NegativeInfinity;
+        //    double[] negativeInfty = new double[upperBound.Length];
+        //    for (int i = 0; i < upperBound.Length; i++)
+        //    {
+        //        negativeInfty[i] = NEGATIVE_INFTY;
+        //    }
+        //    return CumulativeDistributionFunction(negativeInfty, upperBound);
+        //}
         public static double CumulativeDistributionFunction(double[] upperBound, double[] lowerBound, double unitInterval)
         {
             throw new NotImplementedException();
-        }
-        public double CalculateMinMatrixFFT()
-        // Create grid
-        {
-            // Create grid
-            double[] grid = RegularGrid();
-
-            // Initialize h_0(z) as Gaussian function on the grid
-            double[] tempFunction_0 = new double[grid.Length];
-            for (int i = 0; i < grid.Length; i++)
             {
-                tempFunction_0[i] = NormalDensity(grid[i]);
+                // Create grid
+                List<double> grid = RegularGrid();
+
+                // Initialize h_0(z) as Gaussian function on the grid
+                double[] tempFunction_0 = new double[grid.Count];
+                for (int i = 0; i < grid.Count; i++)
+                {
+                    tempFunction_0[i] = NormalDensity(grid[i]);
+                }
+                // Initial value for h_i(z) and f_i(y_i)
+
+                double[] tempFunction_i = tempFunction_0;
+                double[] originalFunction_i = null;
+
+                //Iteratively compute h_i(z) and f_i(y_i) for each i
+                    for (int i = 0; i < grid.Count; i++)
+                    {
+                    // Compute h_i(z) from h_{i-1}(z) using FFT convolution
+                    tempFunction[i] = tempFunction(grid, i, n);
+
+                    // Interpolate f_i(y_i) from h_i(z)
+                    originalFunction[i] = originalFunctionInterpolation(grid, tempFunction, Scale[i], unitInterval, grid.Length);
+                    }
             }
-            // Initial value for h_i(z) and f_i(y_i)
-
-            double[] tempFunction_i = tempFunction_0;
-            double[] originalFunction_i = null;
-            
-
-            
         }
+
+
+}
+
+        //public static double CumulativeDistributionFunction(double[] lowerBound, double[] higherBound)
+        //{
+        //    //LN: to implement
+        //    throw new NotImplementedException();
+        //}
+        //public double CalculateMinMatrixFFT()
+        //{
+        //    // Create grid
+        //    double[] grid = CreateCalculationGrid();
+
+        //    // Initialize h_0(z) as Gaussian function on the grid
+        //    double[] h0 = new double[grid.Length];
+        //    for (int i = 0; i < grid.Length; i++)
+        //    {
+        //        h0[i] = Gaussian(grid[i]);
+        //    }
+
+        //    // Initial value for h_i(z) and f_i(y_i)
+        //    double[] hi = h0;
+        //    double[] fi = null;
+
+        //    // Initial value for delta array 
+        //    double[] delta = new double[bounder];
+        //    for (int i = 0; i < delta.Length; i++)
+        //    {
+        //        delta[i] = 1.0;
+        //    }
+        //    // Iteratively compute h_i(z) and f_i(y_i) for each i
+        //    for (int i = 0; i < delta.Length; i++)
+        //    {
+        //        // Compute h_i(z) from h_{i-1}(z) using FFT convolution
+        //        hi = ComputeHi(grid, hi, delta);
+
+        //        // Interpolate f_i(y_i) from h_i(z)
+        //        fi = InterpolateFi(grid, hi, delta[i], unitInterval, grid.Length);
+        //    }
+        //    // Compute the probability (sum over fi with integration)
+        //    double probability = ComputeProbability(fi, grid);
+        //    // Return the final probability value
+        //    return probability;
+        //}
+        //    }
+        //double[] result = new double[regularGrid.Length];
+        //for (int q = 0; q < regularGrid.Length; q++)
+        //{
+        //    if (regularGrid[q] >= lowerBound && regularGrid[q] <= upperBound)
+        //    {
+        //    }
+        //}
+
+        //return result;
+    }
+}
+
+
+//// Compute y_i from r and unitInterval
+//double yi = r * unitInterval;
+
+//// Turn y_i into z with z = delta[i] * y_i
+//double z = delta * yi;
+
+//// find grid index that correspond to z
+//int lowerIndex = (int)Math.Floor(z / unitInterval);
+//int upperIndex = (int)Math.Ceiling(z / unitInterval);
+
+//// Ensure that index is on the grid
+//if (lowerIndex < 0 || upperIndex >= grid.Length)
+//{
+//    fi[r] = 0.0; // if outside the bounder, return 0
+//    continue;
+//}
+
+//// get h_i(z) values at lowerIndex and upperIndex
+//double hLower = hi[lowerIndex];
+//double hUpper = hi[upperIndex];
+
+//// Compute interpolation parameter
+//double weight = (z - grid[lowerIndex]) / (grid[upperIndex] - grid[lowerIndex]);
+
+//// Interpolation
+//fi[r] = hLower + weight * (hUpper - hLower);
+
+/// <summary>
+/// Declare the tempFunction h_i(z)
+/// </summary>
+/// <param name="t"></param>
+
+/// <summary>
+/// Covariance matrix computing function
+/// </summary>
+/// <param name="t"></param>
+/// <returns></returns>
+//        static double[,] ComputeCovarianceMatrix(double[] t)
+//        {
+//            int n = t.Length;
+//            double[,] covarianceMatrix = new double[n, n];
+//            for (int i = 0; i < n; i++)
+//            {
+//                for (int j = 0; j < n; j++)
+//                {
+//                    covarianceMatrix[i, j] = Math.Min(t[i], t[j]);
+//                }
+//            }
+//            return covarianceMatrix;
+//        }
+
+//        ///<summary>
+//        /// Create the covariance matrix (Minmatrix)
+//        /// </summary>
+//        double[,] covarianceMarix = ComputeCovarianceMatrix(x);
+//                foreach (var time in x)
+//                {
+//                    Console.Write($"{time:F2} ");
+//                }
+//    Console.WriteLine();
+
+//                ///<summary>
+//                /// Print the Wiener process at each time ti
+//                /// </summary>
+//                Console.WriteLine("The Wiener process at each time t_i is: ");
+//                foreach (var time in x)
+//                {
+//                    Console.Write("{time:F2} ");
+//                }
+//Console.WriteLine();
+
+////Print the covariance matrix
+//Console.WriteLine("The covariance matrix is: ");
+//for (int i = 0; i < n; i++)
+//{
+//    for (int j = 0; j < n; j++)
+//    {
+//        Console.Write("{ covarianceMatrix[i, j]:F2} ");
+//    }
+//    Console.WriteLine();
+//}
+
+//// Compute d_k
+//double[] d = new double[n - 1];
+//for (int k = 1; k < n; k++)                                           // d[1] is Wt2 - Wt1
+//{
+//    d[k - 1] = 1 / (x[k] - x[k - 1]);
+//}
+
+//// Create the tridiagonal inverse matrix
+//double[,] inverseMatrix = new double[n, n];
+
+//for (int i = 0; i < n; i++)
+//{
+//    inverseMatrix[i, i] = i == n - 1 ? d[i] : d[i] + d[i + 1];
+//    if (i > 0)
+//        inverseMatrix[i, i - 1] = -d[i];                    // a_{k, k+1}
+//    if (i < n - 1)
+//        inverseMatrix[i, i + 1] = -d[i];                    // a_{k+1, k}            
+//}
+/////<summary>
+///// Print the inverse matrix
+///// </summary>
+//Console.WriteLine("Inverse matrix is:");
+//for (int i = 0; i < n; i++)
+//{
+//    for (int j = 0; j < n; j++)
+//    {
+//        Console.Write($"{inverseMatrix[i, j]:F2} ");
+//    }
+//    Console.WriteLine();
+//}
+
+//// Input the vector l (lower bound multipliers)
+//double[] l = new double[n];
+//Console.WriteLine("Enter the elements of vector l (lower bound multipliers, separated by spaces):");
+//string[] lInput = Console.ReadLine().Split();
+//for (int i = 0; i < n; i++)
+//{
+//    l[i] = double.Parse(lInput[i]);
+//}
+
+//// Input the vector u (upper bound multipliers)
+//double[] u = new double[n];
+//Console.WriteLine("Enter the elements of vector u (upper bound multipliers, separated by spaces):");
+//string[] uInput = Console.ReadLine().Split();
+//for (int i = 0; i < n; i++)
+//{
+//    u[i] = double.Parse(uInput[i]);
+//}
+
+//// Create and compute the y vector
+//double[] y = new double[n];
+//for (int i = 0; i < n; i++)
+//{
+//    y[i] = Math.Sqrt(d[n - 1 - i]) * x[n - 1 - i]; // Change from x to y based on formula
+//}
+
+//// Print the y vector
+//Console.WriteLine("The y vector is:");
+//foreach (var yi in y)
+//{
+//    Console.Write($"{yi:F2} ");
+//}
+//Console.WriteLine();
+
+//// Compute delta(i) for i = 1 to n-1
+//double[] delta = new double[n - 1];
+//for (int i = 0; i < n - 1; i++)
+//{
+//    delta[i] = Math.Sqrt(d[n - 2 - i] / d[n - 1 - i]);
+//}
+//            }
+
+
+
+//        /// <summary>
+//        /// Declare the unit interval and bounder for grid construction
+//        /// </summary>
+//        public double unitInterval { get; set; }
+//public int bounder { get; set; }
+
+//public MinMatrixMethod(double unitinterval_ = 0.005, int bounder_ = 25)
+//{
+//    unitInterval = unitinterval_;
+//    bounder = bounder_;
+//}
+
+///// <summary>
+///// create calculation grid
+///// </summary>
+///// <returns></returns>
+
+//public double[] CreateCalculationGrid()// LN: RegularGrid
+//{
+//    int gridSize = (int)(2 * bounder / unitInterval) + 1;
+//    double[] grid = new double[gridSize];
+//    for (int i = 0; i < gridSize; i++)
+//    {
+//        grid[i] = -bounder + i * unitInterval;
+//    }
+//    return grid;
+
+//}
+
+//// Define Gaussian function
+//public static double Gaussian(double x)// LN: NormalDensity
+//{
+//    return Math.Exp(-0.5 * x * x) / Math.Sqrt(2 * Math.PI);
+//}
+
+//// Compute h_i(z) using FFT convolution
+//public static double[] ComputeHi(double[] grid, double[] hiMinus1, double[] delta) //LN: tempFunction
+//{
+//    int n = grid.Length;
+//    Complex[] gaussian = new Complex[n]; // LN: normalDensity
+//    Complex[] hiPrev = new Complex[n]; // LN: hPrev
+
+//    // Prepare Gaussian function and h_{i-1}(y_{i-1}) for FFT
+//    for (int i = 0; i < n; i++)
+//    {
+//        gaussian[i] = new Complex(Gaussian(grid[i] / delta[i]), 0);
+//        hiPrev[i] = new Complex(hiMinus1[i], 0); // Previous h_{i-1}
+//    }
+
+//    // Apply FFT to both arrays
+//    Fourier.Forward(gaussian, FourierOptions.Matlab);
+//    Fourier.Forward(hiPrev, FourierOptions.Matlab);
+
+//    // Pointwise multiplication in frequency domain
+//    for (int i = 0; i < n; i++)
+//    {
+//        gaussian[i] *= hiPrev[i];
+//    }
+
+//    // Apply inverse FFT to get convolution result
+//    Fourier.Inverse(gaussian, FourierOptions.Matlab);
+
+//    // Normalize and take the real part as result
+//    double[] hi = new double[n];
+//    for (int i = 0; i < n; i++)
+//    {
+//        hi[i] = gaussian[i].Real / n;
+//    }
+
+//    return hi;
+//}
+
+
+////LN: New method
+//public
+
+//    
+//public double ComputeProbability(double[] fi, double[] grid)
+//{
+//    double sum = 0;
+//    for (int i = 0; i < fi.Length; i++)
+//    {
+//        sum += fi[i] * unitInterval;
+//    }
+//    return sum;
+//}
+
+//LN: Computation of Multi-dimensional Gaussian Repartition
+//public static double CumulativeDistributionFunction(double[] higherBound)
+//{
+//    const double NEGATIVE_INFTY = -10defcef6e6edvtyss4dvy6e4dvyde.0;
+//    double[] negativeInfty = new double[higherBound.Length];
+//    for (int i = 0; i < higherBound.Length; i++)
+//    {
+//        negativeInfty[i] = NEGATIVE_INFTY;
+//    }
+//    return CumulativeDistributionFunction(negativeInfty, higherBound);
+//}
+
+//public static double CumulativeDistributionFunction(double[] lowerBound, double[] higherBound)
+//{
+//    //LN: to implement
+//    throw new NotImplementedException();
+//}
+//public double CalculateMinMatrixFFT()
+//{
+//    // Create grid
+//    double[] grid = CreateCalculationGrid();
+
+//    // Initialize h_0(z) as Gaussian function on the grid
+//    double[] h0 = new double[grid.Length];
+//    for (int i = 0; i < grid.Length; i++)
+//    {
+//        h0[i] = Gaussian(grid[i]);
+//    }
+
+//    // Initial value for h_i(z) and f_i(y_i)
+//    double[] hi = h0;
+//    double[] fi = null;
+
+//    // Initial value for delta array 
+//    double[] delta = new double[bounder];
+//    for (int i = 0; i < delta.Length; i++)
+//    {
+//        delta[i] = 1.0;
+//    }
+//    // Iteratively compute h_i(z) and f_i(y_i) for each i
+//    for (int i = 0; i < delta.Length; i++)
+//    {
+//        // Compute h_i(z) from h_{i-1}(z) using FFT convolution
+//        hi = ComputeHi(grid, hi, delta);
+
+//        // Interpolate f_i(y_i) from h_i(z)
+//        fi = InterpolateFi(grid, hi, delta[i], unitInterval, grid.Length);
+//    }
+//    // Compute the probability (sum over fi with integration)
+//    double probability = ComputeProbability(fi, grid);
+//    // Return the final probability value
+//    return probability;
+//}
+//    }
+
+//class Program
+//{
+//    static void Main(string[] args)
+//    {
+//        MinMatrixFFT minMatrixFFT = new MinMatrixFFT(0.1, 25);
+
+
+
+//double[] input_1 = { 0.4, 0.5, 0.9, 0.2 };
+//double[] input_2 = { 0.9, 0.2, 0.5, 1.8 };
+//Complex[] result = minMatrixFFT.ConvolveWithFFT(input_1, input_2);
+
+
+//for (int i = 0; i < result.Length; i++)
+//    Console.WriteLine(result[i].Real);
+//for (int i = 0; i<result.Length; i++)
+//        //    Console.WriteLine(result[i]);
+
+//        double probability = minMatrixFFT.CalculateMinMatrixFFT();
+//        Console.WriteLine("Computed probability: " + probability);
+//    }
+//}
