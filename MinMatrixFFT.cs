@@ -5,7 +5,8 @@ using MathNet.Numerics.IntegralTransforms; // Using MathNet.Numerics for FFT ope
 using MathNet.Numerics;
 using System.Linq;
 using MathNet.Numerics.Distributions;
-
+using System.Reflection.Metadata.Ecma335;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace MinMatrixFFT
 {
@@ -49,10 +50,7 @@ namespace MinMatrixFFT
                 // Input valuation dates (T1, T2, ..., Tn)
                 Console.Write("Enter the valuation dates separated by commas (yyyy-mm-dd): ");
                 string input = Console.ReadLine();
-                DateTime[] valuationDates = input
-                    .Split(',')
-                    .Select(date => DateTime.Parse(date.Trim()))
-                    .ToArray();
+                DateTime[] valuationDates = input.Split(',').Select(date => DateTime.Parse(date.Trim())).ToArray();
 
                 // Check valuation dates are before maturity and after the initial date
                 if (valuationDates.Any(date => date < initialDate || date > maturity))
@@ -74,7 +72,6 @@ namespace MinMatrixFFT
                 int n = timeInterval.Count - 1;
                 double[] tempTimeVar = new double[n];
 
-                // Convert DateTime to double based on the time difference from initialDate
                 for (int i = 1; i <= n; i++)
                 {
                     // Calculate time difference between consecutive dates in days
@@ -83,6 +80,7 @@ namespace MinMatrixFFT
                     // Calculate d_i as the reciprocal of the time difference
                     tempTimeVar[i] = 1.0 / timeDifference;
                 }
+
                 //declare (1xn) vector variable y_i
                 double[] Variable = new double[n];
 
@@ -100,10 +98,7 @@ namespace MinMatrixFFT
                 //input the inputUpperBound vector
                 Console.Write("Enter the values for inputUpperBound separated by commas (u1, u2, ..., un): ");
                 string uInput = Console.ReadLine();
-                double[] inputUpperBound = uInput
-                    .Split(',')
-                    .Select(val => double.Parse(val.Trim()))
-                    .ToArray();
+                double[] inputUpperBound = uInput.Split(',').Select(val => double.Parse(val.Trim())).ToArray();
 
                 // Check if the length of inputUpperBound matches the number of intervals
                 if (inputUpperBound.Length != n)
@@ -170,21 +165,16 @@ namespace MinMatrixFFT
         ///Declare the originalFunction with initial value f_1(y_1) = 1
         ///</summary>
 
-        public static List<double> originalFunction(double[] Variable, int i, int n)
-        {
-            if (i == 1)
-            {
-                return new List<double> { 1.0 };
-            }
-            else if (i > 1 && i <= n)
-            {
-                throw new InvalidOperationException("we are estimating f_i(y_i)");
-            }
-            else
-            {
-                throw new ArgumentOutOfRangeException("Index i is out of range");
-            }
-        }
+        //public static List<List<double>> originalFunction(int i, int n)
+        //{
+        //        originalFunction[1].Add(1.0);
+
+
+        //    originalFunction.Add(originalFunction[i]);
+
+
+        //    return originalFunction;
+        //}
         /// <summary>
         /// RegularGrid function to generate the grid for tempVar
         /// </summary>
@@ -193,13 +183,13 @@ namespace MinMatrixFFT
         /// <param name="unitInterval"></param>
         /// <returns></returns>
         // RegularGrid function to generate the grid for tempVar
-        public static List<double> RegularGrid(double[] lowerBound, double[] upperBound, double unitInterval, double scale)
+        public static List<double> RegularGrid(double[] lowerBound, double[] upperBound, double unitInterval, double[] Scale)
         {
             List<double> regularGrid = new List<double>();
             for (int i = 0; i < lowerBound.Length; i++)
             {
-                double gridLowerBound = Math.Floor(lowerBound[i] * scale);
-                double gridUpperBound = Math.Ceiling((upperBound[i] + 1) * scale);
+                double gridLowerBound = Math.Floor(lowerBound[i] * Scale[i]);
+                double gridUpperBound = Math.Ceiling((upperBound[i] + 1) * Scale[i]);
                 int numGridPoints = (int)((gridUpperBound - gridLowerBound) / unitInterval) + 1;
 
                 for (int j = 0; j < numGridPoints; j++)
@@ -227,13 +217,18 @@ namespace MinMatrixFFT
         /// <param name="lowerBound"></param>
         /// <param name="upperBound"></param>
         /// <returns></returns>
-        public List<double> tempFunction(List<double> regularGrid, int i, int n, int p, int q, double unitInterval, int gridLowerBound, int gridUpperBound, double[] upperBound, double[] lowerBound)
+        public static List<double> tempFunctionMethod(List<double> regularGrid, int i, int n, int p, int q, double unitInterval, int gridLowerBound, int gridUpperBound, double[] upperBound, double[] lowerBound)
         {
-            List<double> tempFunction = new List<double>(regularGrid.Count);
+            List<List<double>> tempFunction = new List<List<double>>(n);
+            List<List<double>> originalFunction = new List<List<double>>(n);
 
-            for (p = gridLowerBound; p <= gridUpperBound; p++)
+            originalFunction.Add(new List<double> { 1.0 });
+            for (i = 0; i < n; i++)
             {
-                tempFunction.Add(tempFunction[p]);
+                tempFunction.Add(new List<double>(gridUpperBound - gridLowerBound + 1));
+            }
+            for (i = 1; i < n; i++)
+            {
                 // Define sum upperbound ceil(upperBound_(i-1) 
                 int[] sumUpperBound = new int[upperBound.Length];
                 for (i = 1; i < upperBound.Length; i++)
@@ -247,38 +242,42 @@ namespace MinMatrixFFT
                     sumLowerBound[i] = (int)Math.Floor(lowerBound[i - 1]);
                 }
                 ///summary
-                ///Do the sum of all values convolution[q] from sumLowerBound to sumUpperBound
+                /// loop through the grid to add tempFunction values at each p
                 ///</summary>
-                for (q = sumLowerBound[i - 1]; q <= sumUpperBound[i - 1]; q++)
+                double tempFunctionSum = 0.0;
+
+                for (p = gridLowerBound; p <= gridUpperBound; p++)
                 {
-                    ///summary
-                    ///Do FFT for values of tempFunction at each point q in the sumInterval
-                    ///</summary>
-                    int fftSize = (int)Math.Pow(2, Math.Ceiling(Math.Log2(regularGrid.Count)));
-                    Complex[] normalDensityValues = new Complex[fftSize];
-                    Complex[] originalFunctionValues = new Complex[fftSize];
+                    for (q = sumLowerBound[i - 1]; q <= sumUpperBound[i - 1]; q++)
+                    {
+                        double normalDensityValue = NormalDensity((p - q) * unitInterval);
+                        ///summary
+                        ///Do FFT for values of tempFunction_i
+                        ///</summary>
+                        int fftSize = (int)Math.Pow(2, Math.Ceiling(Math.Log2(regularGrid.Count)));
+                        Complex[] normalDensityComplex = new Complex[fftSize];
+                        Complex[] originalFunctionComplex = new Complex[fftSize];
+                        normalDensityComplex[q] = new Complex(NormalDensity((p - q) * unitInterval), 0);
+                        originalFunctionComplex[i - 1] = new Complex(originalFunction[i - 1][q], 0);
+                        // Do FFT
 
-                    normalDensityValues[q] = new Complex(NormalDensity((p - q) * unitInterval), 0);
-                    originalFunctionValues[i - 1] = new Complex(originalFunction(new double[] { q * unitInterval }, i - 1, n)[0], 0);
+                        Fourier.Forward(normalDensityComplex, FourierOptions.Matlab);
+                        Fourier.Forward(originalFunctionComplex, FourierOptions.Matlab);
 
-                    // Do FFT
+                        // Calculate the convolution in the frequency domain
+                        Complex[] convolutionResult = new Complex[fftSize];
+                        convolutionResult[q] = normalDensityComplex[q] * originalFunctionComplex[i - 1];
 
-                    Fourier.Forward(normalDensityValues, FourierOptions.Matlab);
-                    Fourier.Forward(originalFunctionValues, FourierOptions.Matlab);
+                        // Inverse of the FFT
+                        Fourier.Inverse(convolutionResult, FourierOptions.Matlab);
 
-                    // Calculate the convolution in the frequency domain
-                    Complex[] convolutionResult = new Complex[fftSize];
-                    convolutionResult[q] = normalDensityValues[q] * originalFunctionValues[i - 1];
-
-                    // Inverse of the FFT
-                    Fourier.Inverse(convolutionResult, FourierOptions.Matlab);
-
-                    // Sum of all the convolution[q] values to obtain tempFunction[p]
-                    tempFunction[p] += convolutionResult[q].Real;
+                        // Sum of all the convolution[q] values to obtain the tempFunction values
+                        tempFunctionSum += convolutionResult[q].Real;
+                    }
+                    tempFunction[i].Add(tempFunctionSum);
                 }
-
             }
-            return tempFunction;
+            return tempFunction[i];
         }
 
         /// <summary>
@@ -289,7 +288,7 @@ namespace MinMatrixFFT
         ///     Points in the x-axis to intepolate.
         /// </param>
         // Create targetGrid for the originalFunction
-        public static List<double> TargetGrid(double lowerBound, double upperBound, double unitInterval, double scale)
+        public static List<double> originalGrid(double lowerBound, double upperBound, double unitInterval, double scale)
         {
             // Adjust the lower and upper bounds using floor and ceil
             double originalGridLowerBound = Math.Floor(lowerBound + 1);
@@ -299,19 +298,19 @@ namespace MinMatrixFFT
             int orignialNumGridPoints = (int)((originalGridUpperBound - originalGridLowerBound) / unitInterval) + 1;
 
             // Create a list to hold the grid points
-            List<double> targetGrid = new List<double>();
+            List<double> originalGrid = new List<double>();
 
             // Generate the grid points
             for (int i = 0; i < orignialNumGridPoints; i++)
             {
-                targetGrid.Add(originalGridLowerBound + i * unitInterval);
+                originalGrid.Add(originalGridLowerBound + i * unitInterval);
             }
-            return targetGrid;
+            return originalGrid;
         }
         /// <summary>
         /// Interpolate f_i(y_i) from h_i(z) using linear interpolation
         /// </summary>
-        /// <param name="targetGrid"></param>
+        /// <param name="originalGrid"></param>
         /// <param name="regularGrid"></param>
         /// <param name="tempFunction"></param>
         /// <param name="originalFunction"></param>
@@ -323,15 +322,78 @@ namespace MinMatrixFFT
         /// <param name="i"></param>
         /// <param name="n"></param>
         /// <returns></returns>
-        public static double[] originalFunctionInterpolation(List<double> targetGrid, List<double> tempFunction, List<double> originalFunction, double unitInterval, double[] Scale, int originalGridLowerBound, int originalGridUpperBound, int r, int i, int n)
+        public static List<double> originalFunctionInterpolation(List<double> originalGrid, List<List<double>> tempFunction, List<List<double>> originalFunction, double unitInterval, double[] Scale, int originalGridLowerBound, int originalGridUpperBound, int r, int i, int n)
         {
-            for (r = originalGridLowerBound; r < originalGridUpperBound; r++)
+            for (i = 1; i <= n; i++)
             {
-                originalFunction[r] = tempFunction[(int)Math.Floor(r * Scale[i])] + (((Scale[i] * r) - Math.Floor(r * Scale[i])) * ((tempFunction[(int)Math.Ceiling(Scale[i] * r)] - tempFunction[(int)Math.Ceiling(Scale[i] * r)])));
+                for (r = originalGridLowerBound; r < originalGridUpperBound; r++)
+                {
+                    originalFunction[i][r] = tempFunction[i][(int)Math.Floor(r * Scale[i])] + (((Scale[i] * r) - Math.Floor(r * Scale[i])) * ((tempFunction[i][(int)Math.Ceiling(Scale[i] * r)] - tempFunction[i][(int)Math.Ceiling(Scale[i] * r)])));
+                }
+
             }
-            return originalFunction.ToArray();
+            return originalFunction[i];
 
         }
+        public static double CalculateProbability(int n, double[] lowerBound, double[] upperBound, double unitInterval, List<DateTime> timeInterval, DateTime maturity, DateTime[] valuationDates)
+        {
+            try
+            {
+                // Validate that the timeInterval contains at least n+1 dates
+                if (timeInterval.Count != n + 1)
+                {
+                    throw new ArgumentException("The timeInterval must contain exactly n+1 dates.");
+                }
+
+                // Compute tempTimeVar (d_i) 
+                double[] tempTimeVar = new double[n];
+                for (int i = 1; i <= n; i++)
+                {
+                    tempTimeVar[i - 1] = 1.0 / (timeInterval[i] - timeInterval[i - 1]).TotalDays;
+                }
+
+                // Compute Scale array 
+                double[] Scale = new double[n - 1];
+                for (int i = 1; i < n; i++)
+                {
+                    Scale[i - 1] = Math.Sqrt(tempTimeVar[n - i] / tempTimeVar[n - i - 1]);
+                }
+
+                List<double> regularGrid = RegularGrid(lowerBound, upperBound, unitInterval, Scale);
+                List<List<double>> originalFunction = new List<List<double>>(n);
+                originalFunction.Add(new List<double> { 1.0 });
+                List<List<double>> tempFunction = new List<List<double>>(n);
+
+                for (int i = 1; i < n; i++)
+                {
+                    tempFunction.Add(tempFunctionMethod(regularGrid, i, n, 1, 1, unitInterval, (int)Math.Floor(lowerBound[i]), (int)Math.Ceiling(upperBound[i]), upperBound, lowerBound));
+                    originalFunction.Add(originalFunctionInterpolation(originalGrid(lowerBound[i], upperBound[i], unitInterval, Scale[i - 1]), tempFunction, originalFunction, unitInterval, Scale, (int)Math.Floor(lowerBound[i] + 1), (int)Math.Ceiling(upperBound[i]), 1, i, n));
+                }
+
+                /// Calculate the final probability by summing over the grid
+
+                double probability = 0.0;
+
+                for (int p = 1; p < regularGrid.Count; p++)
+                {
+                    double gridPoint = regularGrid[p];
+                    double normalDensityValue = NormalDensity(gridPoint);
+                    double originalFunctionValue = originalFunction[n - 1][p];
+                    probability += normalDensityValue * originalFunctionValue;
+                }
+
+                // Multiply by unitInterval to calculate the final probability
+                probability *= unitInterval;
+
+                return probability;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+                return 0.0;
+            }
+        }
+
         //public static double CumulativeDistributionFunction(double[] upperBound)
         //{
         //    const double NEGATIVE_INFTY = double.NegativeInfinity;
@@ -342,38 +404,51 @@ namespace MinMatrixFFT
         //    }
         //    return CumulativeDistributionFunction(negativeInfty, upperBound);
         //}
-        public static double CumulativeDistributionFunction(double[] upperBound, double[] lowerBound, double unitInterval)
-        {
-            throw new NotImplementedException();
-            {
-                // Create grid
-                List<double> grid = RegularGrid();
+        //public static double CumulativeDistributionFunction(double[] upperBound, List<double> tempFunction, double[] lowerBound, double unitInterval, List<double> regularGrid)
+        //{
+        //    throw new NotImplementedException();
+        //    {
+        //        tempFunction.ToArray() = originalFunction 
+        //    }
+        //}
+        //    public static double CalculateProbability(int i, int n, double[] lowerBound, double[] upperBound, double[] Scale, double unitInterval, List<DateTime> timeInterval, DateTime maturity, DateTime[] valuationDates)
+        //    {
+        //        List<List<double>> originalFunction = new List<List<double>>();
+        //        List<List<double>> tempFunction = new List<List<double>>();
+        //        List<double> regularGrid = RegularGrid(lowerBound, upperBound, unitInterval, Scale);
 
-                // Initialize h_0(z) as Gaussian function on the grid
-                double[] tempFunction_0 = new double[grid.Count];
-                for (int i = 0; i < grid.Count; i++)
-                {
-                    tempFunction_0[i] = NormalDensity(grid[i]);
-                }
-                // Initial value for h_i(z) and f_i(y_i)
-
-                double[] tempFunction_i = tempFunction_0;
-                double[] originalFunction_i = null;
-
-                //Iteratively compute h_i(z) and f_i(y_i) for each i
-                    for (int i = 0; i < grid.Count; i++)
-                    {
-                    // Compute h_i(z) from h_{i-1}(z) using FFT convolution
-                    tempFunction[i] = tempFunction(grid, i, n);
-
-                    // Interpolate f_i(y_i) from h_i(z)
-                    originalFunction[i] = originalFunctionInterpolation(grid, tempFunction, Scale[i], unitInterval, grid.Length);
-                    }
-            }
-        }
+        //        // Initialize the first element of originalFunction with 1.0
+        //        originalFunction.Add(new List<double> { 1.0 });
 
 
-}
+        //        originalFunction.Add(new List<double> { 1.0 });
+
+        //        for (i = 1; i < n; i++)
+        //        {
+        //            tempFunction.Add(tempFunctionMethod(regularGrid, originalFunction, unitInterval, lowerBound, upperBound));
+        //            originalFunction.Add(originalFunctionInterpolation(regularGrid, tempFunction, originalGrid, originalFunction, unitInterval, Scale));
+        //        }
+
+        //        double probability = 0.0;
+
+        //        // Generate the grid for summing
+
+        //        for (p = 0; p < regularGrid.Count; p++)
+        //        {
+        //            double gridPoint = regularGrid[p] * unitInterval;
+        //            double normalDensityValue = NormalDensity(gridPoint);
+        //            double originalFunctionValue = originalFunction[n][p];
+
+        //            // Add to probability
+        //            probability += normalDensityValue * originalFunctionValue;
+        //        }
+
+        //        // Step 4: Multiply by unitInterval to calculate final probability
+        //        probability *= unitInterval;
+
+        //        return probability;
+        //    }
+        //}
 
         //public static double CumulativeDistributionFunction(double[] lowerBound, double[] higherBound)
         //{
